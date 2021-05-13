@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import re
 import typing
 
@@ -38,35 +39,48 @@ def get_start_of_album_index(text: str) -> int:
             break
 
     if reverse_index is None:
-        raise ValueError('Unbalance parentheses pair')
+        raise ValueError('Unbalanced parentheses pair')
 
     forward_index = len(text) - reverse_index - 1
     return forward_index
 
 
-def create_track(text: str) -> Track:
+def create_track(text: str, artist=None) -> Track:
     start_of_album_index = get_start_of_album_index(text)
 
-    # Todo remove the rank. The 20 greatest lists have a number too. So tracks look like...
-    #  "{rank}. {track_name} ({album_name}, {album_year})"
     title = text[:start_of_album_index].strip()
+
+    # strip off any preceding ranking numbers
+    match = re.match(r'^\d{1,3}\.\s', title)
+    if match:
+        start_index = max((len(match.group(0)) - 1), 0)
+        title = title[start_index:]
 
     # todo is is worth keeping album year too?
     # remove the album year section
     album = re.sub(r',.*\d{4}\)$', '', text[start_of_album_index+1:]).strip()
-    return Track(title=title, album=album)
+    return Track(title=title, artist=artist, album=album)
 
 
-def get_tracks(soup: BeautifulSoup) -> typing.List[Track]:
+def get_tracks(soup: BeautifulSoup, artist=None) -> typing.List[Track]:
     headings_elements = soup.findAll('div', {'class': 'Block Block--heading'})
     headings = [heading.text.replace('\n', '') for heading in headings_elements]
-    return [create_track(heading) for heading in headings]
+    return [create_track(heading, artist=artist) for heading in headings]
+
+
+def get_artist(soup: BeautifulSoup) -> str or None:
+    heading = soup.find('h1', {'class': 'EntryHeader__heading'})
+    match = re.match('.*greatest(.*)songs', heading.text, flags=re.IGNORECASE)
+    if not match:
+        return None
+
+    return match.group(1).strip()
 
 
 def get_html(url: str) -> BeautifulSoup:
     response = requests.get(url)
     if not response.ok:
-        raise Exception('')  # todo handle properly
+        raise Exception()  # todo handle properly
 
     return BeautifulSoup(response.content, features='html.parser')
 
@@ -75,13 +89,8 @@ def get_html(url: str) -> BeautifulSoup:
 @click.option('--url', '-u', help='URL to a Kerrang article to convert to a playlist')
 def kerrang_to_spotify(url: str):
     html = get_html(url)
-    tracks = get_tracks(html)
-
-    # todo need to extract artist name from soup too
-
-    # todo remove
-    for track in tracks:
-        print(track)
+    artist = get_artist(html)
+    tracks = get_tracks(html, artist=artist)
 
 
 if __name__ == '__main__':
