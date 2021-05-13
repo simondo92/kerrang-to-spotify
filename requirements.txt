@@ -12,8 +12,12 @@ chardet==4.0.0
     # via requests
 click==7.1.2
     # via -r requirements.in
+fuzzywuzzy==0.18.0
+    # via -r requirements.in
 idna==2.10
     # via requests
+python-dotenv==0.17.1
+    # via -r requirements.in
 requests==2.25.1
     # via
     #   -r requirements.in

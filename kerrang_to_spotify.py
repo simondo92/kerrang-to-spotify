@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-
 import re
 import typing
 
 from bs4 import BeautifulSoup
 import click
+from dotenv import load_dotenv
 import requests
+import spotipy
 
 from track import Track
 
@@ -54,7 +55,7 @@ def create_track(text: str, artist=None) -> Track:
     match = re.match(r'^\d{1,3}\.\s', title)
     if match:
         start_index = max((len(match.group(0)) - 1), 0)
-        title = title[start_index:]
+        title = title[start_index:].strip()
 
     # todo is is worth keeping album year too?
     # remove the album year section
@@ -77,7 +78,7 @@ def get_artist(soup: BeautifulSoup) -> str or None:
     return match.group(1).strip()
 
 
-def get_html(url: str) -> BeautifulSoup:
+def get_soup(url: str) -> BeautifulSoup:
     response = requests.get(url)
     if not response.ok:
         raise Exception()  # todo handle properly
@@ -88,10 +89,20 @@ def get_html(url: str) -> BeautifulSoup:
 @click.command()
 @click.option('--url', '-u', help='URL to a Kerrang article to convert to a playlist')
 def kerrang_to_spotify(url: str):
-    html = get_html(url)
-    artist = get_artist(html)
-    tracks = get_tracks(html, artist=artist)
+    soup = get_soup(url)
+    artist = get_artist(soup)
+    tracks = get_tracks(soup, artist=artist)
+    spotify = spotipy.Spotify(auth_manager=spotipy.SpotifyClientCredentials())
+
+    # todo do this on track initialisation?
+    for track in tracks:
+        track.set_spotify_id(spotify=spotify)
+        print(track)
+
+    # todo create the playlist
+    #   needs user authentication through Oauth here. Bit of a road block for now!
 
 
 if __name__ == '__main__':
+    load_dotenv()
     kerrang_to_spotify()
